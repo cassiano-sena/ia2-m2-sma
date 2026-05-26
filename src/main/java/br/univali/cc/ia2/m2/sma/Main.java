@@ -24,23 +24,30 @@ public class Main {
         // trycatch pra criacao de agentes
         try {
 
+            int numTransportes = 3; // quantidade de transportadoras físicas
+            int numConsumidores = 4; // quantidade de consumidores autônomos
+
             container.createNewAgent(
                     "rental",
                     RentalAgent.class.getName(),
-                    null
+                    new Object[]{numTransportes}
             ).start();
 
-            container.createNewAgent(
-                    "transport",
-                    TransportAgent.class.getName(),
-                    null
-            ).start();
+            for (int i = 0; i < numTransportes; i++) {
+                container.createNewAgent(
+                        "transport" + i,
+                        TransportAgent.class.getName(),
+                        null
+                ).start();
+            }
 
-            container.createNewAgent(
-                    "consumer",
-                    ConsumerAgent.class.getName(),
-                    null
-            ).start();
+            for (int i = 0; i < numConsumidores; i++) {
+                container.createNewAgent(
+                        "consumer" + i,
+                        ConsumerAgent.class.getName(),
+                        new Object[]{i + 1} // seed opcional para variar decisões
+                ).start();
+            }
 
         } catch (Exception e) {
             e.printStackTrace();

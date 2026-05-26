@@ -9,15 +9,27 @@ import java.util.Random;
 
 public class ConsumerAgent extends Agent {
 
-    private final Random random = new Random();
+    private Random random;
     private int requestCounter = 0;
 
     // O quão urgente é a necessidade do consumidor (impacta o tempo de espera)
-    private int urgency; // 1 = low, 2 = medium, 3 = high
+    private int urgency; // 1 = baixa, 2 = média, 3 = alta
 
     @Override
     protected void setup() {
         System.out.println("[" + getLocalName() + "] Agente consumidor iniciado. Pronto para alugar geradores.");
+
+        // Seed opcional para diferenciar consumidores quando houver muitos.
+        long seed = System.nanoTime();
+        Object[] args = getArguments();
+        if (args != null && args.length > 0) {
+            try {
+                seed = Long.parseLong(args[0].toString());
+            } catch (Exception ignored) {
+                // mantém seed padrão
+            }
+        }
+        random = new Random(seed);
 
         addBehaviour(new CyclicBehaviour() {
 
@@ -40,8 +52,8 @@ public class ConsumerAgent extends Agent {
                         System.out.println("[" + getLocalName() + "] Vou aguardar o serviço e depois farei uma nova solicitação.");
 
                     // Requisição atendida: aguarda um intervalo normal antes de pedir de novo
-                        int waitMs = 3000 + random.nextInt(3000);
-                        myAgent.doWait(waitMs);
+                    int waitMs = 3000 + random.nextInt(3000);
+                    myAgent.doWait(waitMs);
 
                     } else if (msg.getPerformative() == ACLMessage.FAILURE) {
 
@@ -83,16 +95,22 @@ public class ConsumerAgent extends Agent {
                         + " — preciso de um gerador de " + load + "W por " + duration
                         + "h (orçamento máx: R$" + maxBudget + ").");
 
+                int pedidoNumero = requestCounter;
+                String convId = getLocalName() + "-req-" + pedidoNumero;
+
                 ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
                 request.addReceiver(new AID("rental", AID.ISLOCALNAME));
-                request.setContent("id=" + requestCounter
+                request.setConversationId(convId);
+                request.setContent("id=" + pedidoNumero
+                        + ";consumer=" + getLocalName()
                         + ";load=" + load
                         + ";duration=" + duration
                         + ";budget=" + maxBudget);
 
                 send(request);
 
-                System.out.println("[" + getLocalName() + "] Solicitação #" + requestCounter + " enviada para [rental].");
+                System.out.println("[" + getLocalName() + "] Solicitação #" + pedidoNumero
+                        + " (conv=" + convId + ") enviada para [rental].");
                 requestCounter++;
             }
         });
