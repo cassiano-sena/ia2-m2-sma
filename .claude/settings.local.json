@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(gsd-stats)",
+      "Skill(gsd-update)",
+      "PowerShell(Test-Path *)",
+      "PowerShell(npm view *)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(Set-Location *)",
+      "Skill(gsd-explore)",
+      "Skill(gsd-sketch)",
+      "WebSearch",
+      "WebFetch(domain:jade.tilab.com)"
+    ]
+  }
+}

@@ -108,6 +108,7 @@ public class ConsumerAgent extends Agent {
                         + ";budget=" + maxBudget);
 
                 send(request);
+                JadeMessageBus.get().onSend(request);
 
                 System.out.println("[" + getLocalName() + "] Solicitação #" + pedidoNumero
                         + " (conv=" + convId + ") enviada para [rental].");

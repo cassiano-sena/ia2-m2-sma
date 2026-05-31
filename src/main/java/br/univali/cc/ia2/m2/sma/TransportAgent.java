@@ -85,6 +85,7 @@ public class TransportAgent extends Agent {
             reply.setPerformative(ACLMessage.REFUSE);
             reply.setContent("transportadora ocupada (ida+volta em andamento).");
             send(reply);
+            JadeMessageBus.get().onSend(reply);
 
             System.out.println("[" + getLocalName() + "] Consulta recusada: já estou em transporte.");
             return;
@@ -134,6 +135,7 @@ public class TransportAgent extends Agent {
                 + vehicle + " | R$" + transportPrice + " | ida em " + etaIda + " (load=" + load + ").");
 
         send(reply);
+        JadeMessageBus.get().onSend(reply);
     }
 
     // Segundo passo: o RentalAgent aceita uma proposta e aí a transportadora fica indisponível durante a ida+volta.
@@ -145,6 +147,7 @@ public class TransportAgent extends Agent {
             reply.setPerformative(ACLMessage.REFUSE);
             reply.setContent("já estou em transporte.");
             send(reply);
+            JadeMessageBus.get().onSend(reply);
             return;
         }
 
@@ -154,6 +157,7 @@ public class TransportAgent extends Agent {
             reply.setPerformative(ACLMessage.REFUSE);
             reply.setContent("nenhuma oferta pendente encontrada para esse pedido.");
             send(reply);
+            JadeMessageBus.get().onSend(reply);
             return;
         }
 
@@ -182,6 +186,7 @@ public class TransportAgent extends Agent {
                         + ";eta=" + ofertaFinal.etaIda
                         + ";totalMinutes=" + ofertaFinal.totalMinutos);
                 send(done);
+                JadeMessageBus.get().onSend(done);
             }
         });
     }

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sketch V1: Agent Traffic Control</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; height: 100vh; overflow: hidden; }
+  .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; }
+  .header .badge { font-size: 11px; background: #238636; padding: 2px 8px; border-radius: 12px; }
+  .main { display: grid; grid-template-columns: 1fr 340px; height: calc(100vh - 49px); }
+  .canvas { position: relative; background: #0d1117; overflow: hidden; }
+  .agent-node { position: absolute; border-radius: 12px; padding: 14px 18px; min-width: 140px; text-align: center; border: 2px solid; }
+  .agent-node.consumer { background: #0d2820; border-color: #238636; }
+  .agent-node.rental { background: #1c1a2e; border-color: #a371f7; width: 180px; }
+  .agent-node.transport { background: #1a1d24; border-color: #f0883e; }
+  .agent-node .name { font-size: 13px; font-weight: 600; }
+  .agent-node .status { font-size: 11px; margin-top: 4px; padding: 2px 6px; border-radius: 4px; display: inline-block; }
+  .status.available { background: #238636; color: #fff; }
+  .status.busy { background: #9e6a03; color: #fff; }
+  .status.thinking { background: #1f6feb; color: #fff; }
+  .agent-node .detail { font-size: 10px; color: #8b949e; margin-top: 6px; }
+  .msg-line { position: absolute; height: 2px; background: #58a6ff; opacity: 0.6; transform-origin: left center; pointer-events: none; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 0.3; } }
+  .sidebar { background: #161b22; border-left: 1px solid #30363d; display: flex; flex-direction: column; }
+  .sidebar-title { padding: 12px 16px; font-size: 12px; font-weight: 600; color: #8b949e; border-bottom: 1px solid #30363d; text-transform: uppercase; letter-spacing: 1px; }
+  .log { flex: 1; overflow-y: auto; padding: 8px; }
+  .log-entry { font-size: 11px; padding: 5px 8px; border-radius: 4px; margin-bottom: 4px; background: #0d1117; border-left: 3px solid; }
+  .log-entry.consumer { border-color: #238636; }
+  .log-entry.rental { border-color: #a371f7; }
+  .log-entry.transport { border-color: #f0883e; }
+  .log-entry .time { color: #484f58; margin-right: 6px; }
+  .log-entry .msg { color: #8b949e; }
+  .controls { padding: 12px; border-top: 1px solid #30363d; display: flex; gap: 8px; }
+  .btn { flex: 1; padding: 8px; border-radius: 6px; border: none; font-size: 12px; cursor: pointer; font-weight: 500; }
+  .btn-primary { background: #238636; color: #fff; }
+  .btn-danger { background: #da3633; color: #fff; }
+  .stats { padding: 12px; border-top: 1px solid #30363d; font-size: 11px; color: #8b949e; }
+  .stats-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .stats .val { color: #e6edf3; font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Agent Traffic Control — SMA Generator Rental</h1>
+  <span class="badge">LIVE</span>
+</div>
+<div class="main">
+  <div class="canvas">
+    <!-- Consumer Agents -->
+    <div class="agent-node consumer" style="left:80px;top:60px">
+      <div class="name">consumer0</div>
+      <div class="status available">available</div>
+      <div class="detail">load: 8500W | 4h</div>
+    </div>
+    <div class="agent-node consumer" style="left:80px;top:200px">
+      <div class="name">consumer1</div>
+      <div class="status thinking">requesting</div>
+      <div class="detail">load: 3500W | 7h</div>
+    </div>
+    <div class="agent-node consumer" style="left:80px;top:340px">
+      <div class="name">consumer2</div>
+      <div class="status available">available</div>
+      <div class="detail">load: 2000W | 2h</div>
+    </div>
+    <div class="agent-node consumer" style="left:80px;top:480px">
+      <div class="name">consumer3</div>
+      <div class="status busy">waiting</div>
+      <div class="detail">load: 6000W | 10h</div>
+    </div>
+    <!-- Rental Agent -->
+    <div class="agent-node rental" style="left:320px;top:250px">
+      <div class="name">rental</div>
+      <div class="status thinking">coordinating</div>
+      <div class="detail">R$320 + R$250 transport</div>
+    </div>
+    <!-- Transport Agents -->
+    <div class="agent-node transport" style="left:580px;top:80px">
+      <div class="name">transport0</div>
+      <div class="status available">available</div>
+      <div class="detail">Van leve | R$180</div>
+    </div>
+    <div class="agent-node transport" style="left:580px;top:260px">
+      <div class="name">transport1</div>
+      <div class="status busy">in-transit</div>
+      <div class="detail">Caminhão médio | ↻ 4min</div>
+    </div>
+    <div class="agent-node transport" style="left:580px;top:440px">
+      <div class="name">transport2</div>
+      <div class="status available">available</div>
+      <div class="detail">Caminhão pesado | R$420</div>
+    </div>
+    <!-- Message flow lines -->
+    <svg style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none">
+      <line x1="220" y1="130" x2="320" y2="300" stroke="#238636" stroke-width="2" stroke-dasharray="4,2" opacity="0.7">
+        <animate attributeName="stroke-dashoffset" from="0" to="12" dur="1s" repeatCount="indefinite"/>
+      </line>
+      <line x1="500" y1="310" x2="580" y2="150" stroke="#a371f7" stroke-width="2" stroke-dasharray="4,2" opacity="0.7">
+        <animate attributeName="stroke-dashoffset" from="0" to="12" dur="1s" repeatCount="indefinite"/>
+      </line>
+      <line x1="660" y1="170" x2="660" y2="310" stroke="#f0883e" stroke-width="2" opacity="0.5"/>
+    </svg>
+  </div>
+  <div class="sidebar">
+    <div class="sidebar-title">Message Timeline</div>
+    <div class="log">
+      <div class="log-entry consumer">
+        <span class="time">10:42:01</span>
+        <span class="msg">consumer1 → rental: REQUEST (load=3500W, 7h, R$1200)</span>
+      </div>
+      <div class="log-entry rental">
+        <span class="time">10:42:01</span>
+        <span class="msg">rental: validating — load OK, price=R$620</span>
+      </div>
+      <div class="log-entry rental">
+        <span class="time">10:42:01</span>
+        <span class="msg">rental: querying 3 transporters...</span>
+      </div>
+      <div class="log-entry transport">
+        <span class="time">10:42:02</span>
+        <span class="msg">transport0: PROPOSE (Van leve, R$180, ida 45min)</span>
+      </div>
+      <div class="log-entry transport">
+        <span class="time">10:42:02</span>
+        <span class="msg">transport1: PROPOSE (Caminhão médio, R$260, ida 30min)</span>
+      </div>
+      <div class="log-entry transport">
+        <span class="time">10:42:02</span>
+        <span class="msg">transport2: PROPOSE (Caminhão pesado, R$410, ida 60min)</span>
+      </div>
+      <div class="log-entry rental">
+        <span class="time">10:42:02</span>
+        <span class="msg">rental: accepted transport1 (R$260) — total R$880</span>
+      </div>
+      <div class="log-entry transport">
+        <span class="time">10:42:03</span>
+        <span class="msg">transport1: ACCEPT_PROPOSAL received — starting transit</span>
+      </div>
+      <div class="log-entry consumer">
+        <span class="time">10:42:14</span>
+        <span class="msg">consumer1: INFORM confirmed (total R$880)</span>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stats-row"><span>Total Requests</span><span class="val">12</span></div>
+      < class="stats-row"><span>Confirmed</span><span class="val">9</span></div>
+      <div class="stats-row"><span>Failed</span><span class="val">3</span></div>
+    </div>
+    <div class="controls">
+      <button class="btn btn-primary">▶ Start</button>
+      <button class="btn btn-danger">■ Stop</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

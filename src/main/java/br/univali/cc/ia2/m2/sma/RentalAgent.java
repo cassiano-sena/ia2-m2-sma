@@ -82,6 +82,7 @@ public class RentalAgent extends Agent {
             refusal.setConversationId(convId);
             refusal.setContent("Carga solicitada (" + load + "W) excede capacidade do gerador.");
             send(refusal);
+            JadeMessageBus.get().onSend(refusal);
             return;
         }
 
@@ -102,6 +103,7 @@ public class RentalAgent extends Agent {
             refusal.setConversationId(convId);
             refusal.setContent("Orçamento insuficiente para o aluguel (R$" + rentalPrice + ").");
             send(refusal);
+            JadeMessageBus.get().onSend(refusal);
             return;
         }
 
@@ -170,6 +172,7 @@ public class RentalAgent extends Agent {
                             + ";load=" + load
                             + ";duration=" + duration);
                     send(inquiry);
+                    JadeMessageBus.get().onSend(inquiry);
                 }
 
                 consultasEnviadas = true;
@@ -218,6 +221,7 @@ public class RentalAgent extends Agent {
                             failure.setConversationId(convId);
                             failure.setContent("Nenhum transportador disponível (ou dentro do orçamento) para o pedido.");
                             send(failure);
+                            JadeMessageBus.get().onSend(failure);
                             finalizado = true;
                             return;
                         }
@@ -231,6 +235,7 @@ public class RentalAgent extends Agent {
                         accept.setConversationId(convId);
                         accept.setContent("start=true");
                         send(accept);
+                        JadeMessageBus.get().onSend(accept);
 
                         aceito = true;
                         fimConclusaoMs = System.currentTimeMillis() + 12000; // janela para concluir o transporte
@@ -262,7 +267,7 @@ public class RentalAgent extends Agent {
                                 + " | Transporte: R$" + transportePreco
                                 + " | Total: R$" + totalPrice);
                         send(confirm);
-
+                        JadeMessageBus.get().onSend(confirm);
                         finalizado = true;
                         return;
                     }
@@ -275,6 +280,7 @@ public class RentalAgent extends Agent {
                         failure.setConversationId(convId);
                         failure.setContent("Tempo esgotado para finalizar o transporte do pedido.");
                         send(failure);
+                        JadeMessageBus.get().onSend(failure);
                         finalizado = true;
                     } else {
                         myAgent.doWait(200);
