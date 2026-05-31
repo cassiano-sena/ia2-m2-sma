@@ -14,6 +14,7 @@ public class Main {
 
         // para iniciar o servidor de agentes do JADE
         Runtime runtime = Runtime.instance();
+        runtime.setCloseVM(true);
 
         // para configurar portas redes e parametros
         Profile profile = new ProfileImpl();

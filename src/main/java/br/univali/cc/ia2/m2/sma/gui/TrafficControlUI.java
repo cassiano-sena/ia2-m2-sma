@@ -10,6 +10,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.Border;
@@ -27,7 +28,6 @@ import javafx.scene.layout.RowConstraints;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.StrokeLineCap;
-import javafx.scene.shape.StrokeType;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
@@ -40,25 +40,28 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Main JavaFX Traffic Control UI — matches sketch-v1-traffic-control layout.
- * Dark dashboard with agent node canvas (left) and message log sidebar (right).
+ * Main JavaFX Traffic Control UI — Light theme dashboard with agent node canvas (left)
+ * and message log sidebar (right) divided into 3 categories.
  */
 public class TrafficControlUI {
 
-    // Colour palette matching sketch-v1
-    private static final Color BG = Color.rgb(13, 17, 23);
-    private static final Color SURFACE = Color.rgb(22, 27, 34);
-    private static final Color BORDER = Color.rgb(48, 54, 61);
-    private static final Color TEXT = Color.rgb(230, 237, 243);
-    private static final Color MUTED = Color.rgb(139, 148, 158);
+    // Light theme colour palette
+    private static final Color BG = Color.rgb(248, 249, 250);
+    private static final Color SURFACE = Color.WHITE;
+    private static final Color BORDER = Color.rgb(222, 226, 230);
+    private static final Color TEXT = Color.rgb(33, 37, 41);
+    private static final Color MUTED = Color.rgb(108, 117, 125);
 
-    private static final Color CONSUMER_COLOR   = Color.rgb(35, 134, 54);
-    private static final Color RENTAL_COLOR    = Color.rgb(163, 113, 247);
-    private static final Color TRANSPORT_COLOR = Color.rgb(240, 136, 62);
+    private static final Color CONSUMER_COLOR   = Color.rgb(40, 167, 69);
+    private static final Color CONSUMER_BG      = Color.rgb(209, 231, 221);
+    private static final Color RENTAL_COLOR     = Color.rgb(111, 66, 193);
+    private static final Color RENTAL_BG        = Color.rgb(237, 233, 247);
+    private static final Color TRANSPORT_COLOR  = Color.rgb(253, 126, 20);
+    private static final Color TRANSPORT_BG     = Color.rgb(255, 227, 201);
 
-    private static final Color STATUS_AVAILABLE = Color.rgb(35, 134, 54);
-    private static final Color STATUS_BUSY     = Color.rgb(158, 106, 3);
-    private static final Color STATUS_THINKING = Color.rgb(31, 111, 235);
+    private static final Color STATUS_AVAILABLE = Color.rgb(40, 167, 69);
+    private static final Color STATUS_BUSY     = Color.rgb(255, 193, 7);
+    private static final Color STATUS_THINKING = Color.rgb(0, 123, 255);
 
     // Agent node centres on the canvas (used for line start/end)
     private static final Map<String, double[]> NODE_POS = Map.of(
@@ -84,10 +87,11 @@ public class TrafficControlUI {
     private final Map<String, String>   agentDetails = new ConcurrentHashMap<>();
 
     private final Canvas msgCanvas;
-    private final VBox logBox;
+    private final VBox logBoxPendente, logBoxEmAndamento, logBoxConcluida;
     private final Label statTotal, statConfirmed, statFailed;
-    private final Button btnStart, btnStop;
     private final Label liveBadge;
+    private final Button btnPause;
+    private final HBox header;
 
     private final AtomicBoolean running = new AtomicBoolean(true);
     private final DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm:ss");
@@ -95,6 +99,10 @@ public class TrafficControlUI {
     private int totalRequests   = 0;
     private int confirmedRequests = 0;
     private int failedRequests   = 0;
+
+    // Track message IDs to remove from previous lists when transitioning
+    private final Map<String, AgentMessageEvent> pendingMessages = new ConcurrentHashMap<>();
+    private final Map<String, AgentMessageEvent> inProgressMessages = new ConcurrentHashMap<>();
 
     // ── Message flow animation ────────────────────────────────────────────────
     private record Flow(double sx, double sy, double ex, double ey, Color col, long startNs) {}
@@ -114,50 +122,76 @@ public class TrafficControlUI {
 
         msgCanvas = new Canvas(750, 580);
 
-        statTotal      = new Label("Total Requests: 0");
-        statConfirmed  = new Label("Confirmed: 0");
-        statFailed     = new Label("Failed: 0");
+        statTotal      = new Label("Total de Solicitações: 0");
+        statConfirmed  = new Label("Confirmadas: 0");
+        statFailed     = new Label("Falhas: 0");
         for (Label l : new Label[]{statTotal, statConfirmed, statFailed}) {
             l.setFont(Font.font("Segoe UI", 11));
             l.setTextFill(MUTED);
         }
 
-        btnStart = new Button("▶ Start");
-        btnStop  = new Button("■ Stop");
-        styleBtn(btnStart, STATUS_AVAILABLE, Color.WHITE);
-        styleBtn(btnStop,  Color.rgb(218, 54, 51), Color.WHITE);
-        btnStart.setDisable(true);
-        btnStop.setDisable(false);
-        btnStart.setOnAction(e -> { running.set(true);  btnStart.setDisable(true);  btnStop.setDisable(false); });
-        btnStop.setOnAction( e -> { running.set(false); btnStart.setDisable(false); btnStop.setDisable(true); });
-
-        liveBadge = new Label("LIVE");
+        liveBadge = new Label("AO VIVO");
         liveBadge.setFont(Font.font("Segoe UI", javafx.scene.text.FontWeight.BOLD, 10.0));
         liveBadge.setTextFill(Color.WHITE);
         liveBadge.setBackground(new Background(new BackgroundFill(STATUS_AVAILABLE, new CornerRadii(12), null)));
         liveBadge.setPadding(new Insets(2, 8, 2, 8));
         liveBadge.setAlignment(Pos.CENTER);
 
-        logBox = new VBox(5);
-        logBox.setPadding(new Insets(8));
-        logBox.setBackground(new Background(new BackgroundFill(BG, null, null)));
-    }
+        btnPause = new Button("⏸ Pausar Visual");
+        btnPause.setFont(Font.font("Segoe UI", 11));
+        btnPause.setTextFill(Color.WHITE);
+        btnPause.setBackground(new Background(new BackgroundFill(Color.rgb(108, 117, 125), new CornerRadii(6), null)));
+        btnPause.setPadding(new Insets(6, 14, 6, 14));
+        btnPause.setCursor(javafx.scene.Cursor.HAND);
+        btnPause.setOnAction(e -> {
+            if (running.get()) {
+                running.set(false);
+                btnPause.setText("▶ Retomar Visual");
+                btnPause.setBackground(new Background(new BackgroundFill(STATUS_AVAILABLE, new CornerRadii(6), null)));
+                liveBadge.setBackground(new Background(new BackgroundFill(Color.rgb(108, 117, 125), new CornerRadii(12), null)));
+                liveBadge.setText("PAUSADO");
+            } else {
+                running.set(true);
+                btnPause.setText("⏸ Pausar Visual");
+                btnPause.setBackground(new Background(new BackgroundFill(Color.rgb(108, 117, 125), new CornerRadii(6), null)));
+                liveBadge.setBackground(new Background(new BackgroundFill(STATUS_AVAILABLE, new CornerRadii(12), null)));
+                liveBadge.setText("AO VIVO");
+            }
+        });
 
-    public Scene buildScene() {
+        logBoxPendente = new VBox(5);
+        logBoxPendente.setPadding(new Insets(8));
+        logBoxPendente.setBackground(new Background(new BackgroundFill(BG, null, null)));
+
+        logBoxEmAndamento = new VBox(5);
+        logBoxEmAndamento.setPadding(new Insets(8));
+        logBoxEmAndamento.setBackground(new Background(new BackgroundFill(BG, null, null)));
+
+        logBoxConcluida = new VBox(5);
+        logBoxConcluida.setPadding(new Insets(8));
+        logBoxConcluida.setBackground(new Background(new BackgroundFill(BG, null, null)));
+
         // Header bar
-        Label title = new Label("Agent Traffic Control — SMA Generator Rental");
+        Label title = new Label("Controle de Tráfego de Agentes — Locadora de Geradores SMA");
         title.setFont(Font.font("Segoe UI", javafx.scene.text.FontWeight.NORMAL, 15.0));
-        title.setTextFill(Color.rgb(88, 166, 255));
+        title.setTextFill(Color.rgb(0, 123, 255));
         title.setLayoutY(12);
 
-        HBox header = new HBox(title, liveBadge);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        header = new HBox(title, liveBadge, spacer, btnPause);
         header.setPrefHeight(44);
         header.setBackground(new Background(new BackgroundFill(BORDER, null, null)));
         header.setPadding(new Insets(0, 16, 0, 16));
         header.setAlignment(Pos.CENTER_LEFT);
+        header.setSpacing(12);
         HBox.setHgrow(title, Priority.ALWAYS);
         liveBadge.setAlignment(Pos.CENTER);
+        btnPause.setAlignment(Pos.CENTER);
+    }
 
+    public Scene buildScene() {
         // Canvas with agent nodes
         Pane canvasPane = new Pane(msgCanvas);
         canvasPane.setPrefSize(750, 580);
@@ -169,34 +203,52 @@ public class TrafficControlUI {
             canvasPane.getChildren().add(node);
         }
 
-        // Right sidebar
-        Label logTitle = new Label("Message Timeline");
-        logTitle.setFont(Font.font("Segoe UI", 12));
-        logTitle.setTextFill(MUTED);
-        logTitle.setPadding(new Insets(12, 16, 8, 16));
-        logTitle.setBackground(new Background(new BackgroundFill(BORDER, null, null)));
+        // Right sidebar - 3 categorias de mensagens
+        Label logTitlePendente = new Label("Pendentes");
+        logTitlePendente.setFont(Font.font("Segoe UI", 12));
+        logTitlePendente.setTextFill(MUTED);
+        logTitlePendente.setPadding(new Insets(8, 16, 4, 16));
+        logTitlePendente.setBackground(new Background(new BackgroundFill(BORDER, null, null)));
 
-        ScrollPane logScroll = new ScrollPane(logBox);
-        logScroll.setFitToWidth(true);
-        logScroll.setBackground(new Background(new BackgroundFill(SURFACE, null, null)));
-        logScroll.setPrefWidth(340);
-        logScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        VBox.setVgrow(logScroll, Priority.ALWAYS);
+        ScrollPane scrollPendente = new ScrollPane(logBoxPendente);
+        scrollPendente.setFitToWidth(true);
+        scrollPendente.setBackground(new Background(new BackgroundFill(SURFACE, null, null)));
+        scrollPendente.setPrefHeight(140);
+        scrollPendente.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+
+        Label logTitleEmAndamento = new Label("Em andamento");
+        logTitleEmAndamento.setFont(Font.font("Segoe UI", 12));
+        logTitleEmAndamento.setTextFill(MUTED);
+        logTitleEmAndamento.setPadding(new Insets(8, 16, 4, 16));
+        logTitleEmAndamento.setBackground(new Background(new BackgroundFill(BORDER, null, null)));
+
+        ScrollPane scrollEmAndamento = new ScrollPane(logBoxEmAndamento);
+        scrollEmAndamento.setFitToWidth(true);
+        scrollEmAndamento.setBackground(new Background(new BackgroundFill(SURFACE, null, null)));
+        scrollEmAndamento.setPrefHeight(140);
+        scrollEmAndamento.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+
+        Label logTitleConcluida = new Label("Concluídas");
+        logTitleConcluida.setFont(Font.font("Segoe UI", 12));
+        logTitleConcluida.setTextFill(MUTED);
+        logTitleConcluida.setPadding(new Insets(8, 16, 4, 16));
+        logTitleConcluida.setBackground(new Background(new BackgroundFill(BORDER, null, null)));
+
+        ScrollPane scrollConcluida = new ScrollPane(logBoxConcluida);
+        scrollConcluida.setFitToWidth(true);
+        scrollConcluida.setBackground(new Background(new BackgroundFill(SURFACE, null, null)));
+        scrollConcluida.setPrefHeight(180);
+        scrollConcluida.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        VBox.setVgrow(scrollConcluida, Priority.ALWAYS);
 
         VBox statsBar = new VBox(4);
         statsBar.setPadding(new Insets(10, 12, 10, 12));
         statsBar.setBackground(new Background(new BackgroundFill(BORDER, null, null)));
         statsBar.getChildren().addAll(statTotal, statConfirmed, statFailed);
 
-        VBox controls = new VBox(8);
-        controls.setPadding(new Insets(12));
-        controls.setBackground(new Background(new BackgroundFill(SURFACE, null, null)));
-        controls.getChildren().addAll(btnStart, btnStop);
-
-        VBox rightPanel = new VBox(logTitle, logScroll, statsBar, controls);
+        VBox rightPanel = new VBox(logTitlePendente, scrollPendente, logTitleEmAndamento, scrollEmAndamento, logTitleConcluida, scrollConcluida, statsBar);
         rightPanel.setPrefWidth(340);
         rightPanel.setBackground(new Background(new BackgroundFill(SURFACE, null, null)));
-        VBox.setVgrow(logScroll, Priority.ALWAYS);
 
         // Root GridPane
         GridPane root = new GridPane();
@@ -255,9 +307,9 @@ public class TrafficControlUI {
     }
 
     private Color agentBgColor(String name) {
-        if (name.equals("rental")) return Color.rgb(28, 26, 46);
-        if (name.startsWith("transport")) return Color.rgb(26, 29, 36);
-        return Color.rgb(13, 40, 32);
+        if (name.equals("rental")) return RENTAL_BG;
+        if (name.startsWith("transport")) return TRANSPORT_BG;
+        return CONSUMER_BG;
     }
 
     private static ColumnConstraints col(double w) {
@@ -270,15 +322,6 @@ public class TrafficControlUI {
         RowConstraints r = new RowConstraints();
         r.setPrefHeight(h);
         return r;
-    }
-
-    private void styleBtn(Button btn, Color bg, Color fg) {
-        btn.setBackground(new Background(new BackgroundFill(bg, null, null)));
-        btn.setTextFill(fg);
-        btn.setFont(Font.font("Segoe UI", 12));
-        btn.setPrefHeight(34);
-        btn.setMaxWidth(Double.MAX_VALUE);
-        btn.setCursor(javafx.scene.Cursor.HAND);
     }
 
     // ── AnimationTimer ────────────────────────────────────────────────────────
@@ -308,16 +351,16 @@ public class TrafficControlUI {
 
         if ("REQUEST".equals(perf) && sender.startsWith("consumer")) {
             totalRequests++;
-            Platform.runLater(() -> statTotal.setText("Total Requests: " + totalRequests));
+            Platform.runLater(() -> statTotal.setText("Total de Solicitações: " + totalRequests));
             updateNode(sender, "requesting", extractLoad(ev.getContent()));
         }
         if ("INFORM".equals(perf) && sender.equals("rental")) {
             confirmedRequests++;
-            Platform.runLater(() -> statConfirmed.setText("Confirmed: " + confirmedRequests));
+            Platform.runLater(() -> statConfirmed.setText("Confirmadas: " + confirmedRequests));
         }
         if ("FAILURE".equals(perf)) {
             failedRequests++;
-            Platform.runLater(() -> statFailed.setText("Failed: " + failedRequests));
+            Platform.runLater(() -> statFailed.setText("Falhas: " + failedRequests));
         }
         if ("PROPOSE".equals(perf) && sender.startsWith("transport")) {
             updateNode(sender, "thinking", vehicle(ev.getContent()) + " | R$" + price(ev.getContent()));
@@ -383,32 +426,92 @@ public class TrafficControlUI {
     }
 
     // ── Log panel ─────────────────────────────────────────────────────────────
+    private Color senderBgColor(String type) {
+        return switch (type) {
+            case "consumer"  -> CONSUMER_BG;
+            case "rental"    -> RENTAL_BG;
+            case "transport" -> TRANSPORT_BG;
+            default          -> Color.rgb(233, 236, 239);
+        };
+    }
+
     private void appendLog(AgentMessageEvent ev) {
         String sType = ev.getSenderType();
-        Color border = senderColor(sType);
+        Color bg = senderBgColor(sType);
         String time  = timeFmt.format(LocalDateTime.now());
 
         VBox entry = new VBox(2);
         entry.setPadding(new Insets(6, 8, 6, 8));
-        entry.setBackground(new Background(new BackgroundFill(BG, null, null)));
-        entry.setBorder(new Border(new BorderStroke(
-                border, BorderStrokeStyle.SOLID,
-                new CornerRadii(4), new BorderWidths(3, 0, 0, 0))));
+        entry.setBackground(new Background(new BackgroundFill(bg, new CornerRadii(4), null)));
 
         Label timeLbl = new Label(time + "  " + ev.getSender() + " → " + ev.getReceiver());
         timeLbl.setFont(Font.font("Segoe UI", 10));
         timeLbl.setTextFill(MUTED);
+        Tooltip timeTooltip = new Tooltip(time + " | " + ev.getSender() + " → " + ev.getReceiver());
+        timeTooltip.setFont(Font.font("Segoe UI", 10));
+        Tooltip.install(timeLbl, timeTooltip);
 
         Label msgLbl = new Label(ev.getPerformativeName() + " | " + truncate(ev.getContent(), 80));
         msgLbl.setFont(Font.font("Segoe UI", 11));
         msgLbl.setTextFill(TEXT);
+        msgLbl.setWrapText(true);
+        // Tooltip com mensagem completa
+        String fullContent = ev.getContent() != null ? ev.getContent() : "";
+        Tooltip tooltip = new Tooltip(fullContent);
+        tooltip.setFont(Font.font("Segoe UI", 10));
+        tooltip.setWrapText(true);
+        tooltip.setMaxWidth(400);
+        Tooltip.install(msgLbl, tooltip);
 
         entry.getChildren().addAll(timeLbl, msgLbl);
-        logBox.getChildren().add(entry);
 
-        if (logBox.getChildren().size() > 200) {
-            logBox.getChildren().remove(0);
+        String perf = ev.getPerformativeName();
+        String sender = ev.getSender();
+
+        // Determine message key for tracking transitions
+        String msgKey = sender + "_" + time + "_" + perf;
+
+        // Handle transitions based on performative
+        if ("REQUEST".equals(perf) || "PROPOSE".equals(perf)) {
+            // Add to Pendentes at TOP (index 0)
+            pendingMessages.put(msgKey, ev);
+            logBoxPendente.getChildren().add(0, entry);
+            if (logBoxPendente.getChildren().size() > 50) {
+                logBoxPendente.getChildren().remove(logBoxPendente.getChildren().size() - 1);
+            }
+        } else if ("ACCEPT_PROPOSAL".equals(perf)) {
+            // Remove from Pendentes if exists, add to Em andamento
+            removeFromPending(msgKey, entry);
+            inProgressMessages.put(msgKey, ev);
+            logBoxEmAndamento.getChildren().add(0, entry);
+            if (logBoxEmAndamento.getChildren().size() > 50) {
+                logBoxEmAndamento.getChildren().remove(logBoxEmAndamento.getChildren().size() - 1);
+            }
+        } else if ("INFORM".equals(perf) || "FAILURE".equals(perf)) {
+            // Remove from Em andamento and Pendentes if exists, add to Concluídas
+            removeFromInProgress(msgKey, entry);
+            removeFromPending(msgKey, entry);
+            logBoxConcluida.getChildren().add(0, entry);
+            if (logBoxConcluida.getChildren().size() > 50) {
+                logBoxConcluida.getChildren().remove(logBoxConcluida.getChildren().size() - 1);
+            }
+        } else {
+            // Other messages go to Em andamento
+            logBoxEmAndamento.getChildren().add(0, entry);
+            if (logBoxEmAndamento.getChildren().size() > 50) {
+                logBoxEmAndamento.getChildren().remove(logBoxEmAndamento.getChildren().size() - 1);
+            }
         }
+    }
+
+    private void removeFromPending(String msgKey, VBox entry) {
+        pendingMessages.remove(msgKey);
+        logBoxPendente.getChildren().remove(entry);
+    }
+
+    private void removeFromInProgress(String msgKey, VBox entry) {
+        inProgressMessages.remove(msgKey);
+        logBoxEmAndamento.getChildren().remove(entry);
     }
 
     // ── Content extractors ────────────────────────────────────────────────────
@@ -468,11 +571,17 @@ public class TrafficControlUI {
 
     // ── Public controls ───────────────────────────────────────────────────────
     public void clearLog() {
-        Platform.runLater(() -> logBox.getChildren().clear());
+        Platform.runLater(() -> {
+            logBoxPendente.getChildren().clear();
+            logBoxEmAndamento.getChildren().clear();
+            logBoxConcluida.getChildren().clear();
+        });
+        pendingMessages.clear();
+        inProgressMessages.clear();
         totalRequests = confirmedRequests = failedRequests = 0;
-        statTotal.setText("Total Requests: 0");
-        statConfirmed.setText("Confirmed: 0");
-        statFailed.setText("Failed: 0");
+        statTotal.setText("Total de Solicitações: 0");
+        statConfirmed.setText("Confirmadas: 0");
+        statFailed.setText("Falhas: 0");
         MessageQueue.clear();
         flows.clear();
         msgCanvas.getGraphicsContext2D().clearRect(0, 0, msgCanvas.getWidth(), msgCanvas.getHeight());

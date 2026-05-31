@@ -11,7 +11,9 @@
       "Skill(gsd-explore)",
       "Skill(gsd-sketch)",
       "WebSearch",
-      "WebFetch(domain:jade.tilab.com)"
+      "WebFetch(domain:jade.tilab.com)",
+      "Bash(mvn compile *)",
+      "Bash(Select-Object -First 50)"
     ]
   }
 }
