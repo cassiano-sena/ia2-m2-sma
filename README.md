@@ -22,11 +22,27 @@ Dependencias e classe principal estao no `pom.xml`:
 
 ## Como executar
 
+### GUI (recomendado no Windows)
+
+Na raiz do projeto, com **JDK 21+** instalado:
+
+```bat
+run-gui.bat
+```
+
+O script usa `mvnw.cmd` (Maven embutido no repositorio). Na primeira execucao o wrapper baixa o Maven automaticamente.
+
+Se precisar de caminhos locais de Java/Maven, copie `run-gui.local.bat.example` para `run-gui.local.bat` e ajuste.
+
+### Linha de comando (agentes JADE, sem GUI)
+
 No diretorio raiz do projeto:
 
 ```bash
-mvn clean compile exec:java
+./mvnw clean compile exec:java
 ```
+
+(ou `mvn` se Maven estiver no PATH)
 
 Ao iniciar:
 - `Main` cria o container JADE principal.

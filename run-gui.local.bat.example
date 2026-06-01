@@ -1,0 +1,6 @@
+@echo off
+REM Copie para run-gui.local.bat e ajuste os caminhos do SEU computador.
+REM Necessario se o PC so tem JRE 8 no PATH e nenhum JDK 21+ em locais padrao.
+
+set "JAVA_HOME=C:\Program Files\Java\jdk-21"
+REM set "MAVEN_HOME=C:\tools\apache-maven-3.9.11"
