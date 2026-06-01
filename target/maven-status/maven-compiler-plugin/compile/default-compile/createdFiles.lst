@@ -8,6 +8,7 @@ br\univali\cc\ia2\m2\sma\gui\TrafficControlApp.class
 br\univali\cc\ia2\m2\sma\gui\MessageQueue.class
 br\univali\cc\ia2\m2\sma\TransportAgent$Oferta.class
 br\univali\cc\ia2\m2\sma\gui\TrafficControlUI.class
+br\univali\cc\ia2\m2\sma\JadeContainerFactory.class
 br\univali\cc\ia2\m2\sma\TransportAgent$1.class
 br\univali\cc\ia2\m2\sma\ConsumerAgent$1.class
 br\univali\cc\ia2\m2\sma\gui\TrafficControlUI$Flow.class

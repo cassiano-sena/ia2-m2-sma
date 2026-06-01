@@ -1,19 +1,13 @@
 package br.univali.cc.ia2.m2.sma.gui;
 
+import br.univali.cc.ia2.m2.sma.JadeContainerFactory;
+
 import javafx.application.Application;
-import javafx.geometry.Pos;
+import javafx.application.Platform;
 import javafx.scene.Scene;
-import javafx.scene.control.Label;
-import javafx.scene.layout.Border;
-import javafx.scene.layout.BorderStroke;
-import javafx.scene.layout.BorderStrokeStyle;
-import javafx.scene.layout.BorderWidths;
-import javafx.scene.layout.CornerRadii;
-import javafx.scene.layout.Pane;
-import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
+import javafx.scene.control.Alert;
 import javafx.stage.Stage;
+import jade.wrapper.AgentContainer;
 
 /**
  * JavaFX entry point. Starts the JADE container + agents in a background thread,
@@ -23,6 +17,7 @@ public class TrafficControlApp extends Application {
 
     private static volatile Scene cachedScene;
     private static volatile TrafficControlUI ui;
+    private volatile AgentContainer jadeContainer;
 
     public static void main(String[] args) {
         Application.launch(args);
@@ -47,19 +42,14 @@ public class TrafficControlApp extends Application {
 
     private void startJade() {
         try {
-            // Ensure JADE system properties for GUI mode
             System.setProperty("jade.gui", "true");
 
-            jade.core.Runtime runtime = jade.core.Runtime.instance();
-            jade.core.Profile profile = new jade.core.ProfileImpl();
-            profile.setParameter(jade.core.Profile.GUI, "true");
-            jade.wrapper.AgentContainer container = runtime.createMainContainer(profile);
+            jadeContainer = JadeContainerFactory.createMainContainer(true);
 
             int numTransports = 3;
             int numConsumers = 4;
 
-            // Start rental
-            container.createNewAgent(
+            jadeContainer.createNewAgent(
                     "rental",
                     "br.univali.cc.ia2.m2.sma.RentalAgent",
                     new Object[]{numTransports}
@@ -67,7 +57,7 @@ public class TrafficControlApp extends Application {
 
             // Start transports
             for (int i = 0; i < numTransports; i++) {
-                container.createNewAgent(
+                jadeContainer.createNewAgent(
                         "transport" + i,
                         "br.univali.cc.ia2.m2.sma.TransportAgent",
                         null
@@ -76,7 +66,7 @@ public class TrafficControlApp extends Application {
 
             // Start consumers
             for (int i = 0; i < numConsumers; i++) {
-                container.createNewAgent(
+                jadeContainer.createNewAgent(
                         "consumer" + i,
                         "br.univali.cc.ia2.m2.sma.ConsumerAgent",
                         new Object[]{i + 1}
@@ -84,7 +74,7 @@ public class TrafficControlApp extends Application {
             }
 
             // Start visualizer agent
-            container.createNewAgent(
+            jadeContainer.createNewAgent(
                     "visualizer",
                     "br.univali.cc.ia2.m2.sma.gui.VisualizerAgent",
                     null
@@ -93,12 +83,27 @@ public class TrafficControlApp extends Application {
         } catch (Exception e) {
             System.err.println("[TrafficControlApp] Failed to start JADE agents:");
             e.printStackTrace();
+            Platform.runLater(() -> {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("JADE");
+                alert.setHeaderText("Falha ao iniciar agentes JADE");
+                alert.setContentText(e.getMessage()
+                        + "\n\nFeche outras instancias da GUI ou processos Java antigos e tente de novo.");
+                alert.showAndWait();
+            });
         }
     }
 
     @Override
     public void stop() {
-        if (ui != null) ui.stop();
-        try { jade.core.Runtime.instance().createMainContainer(null).kill(); } catch (Exception ignored) {}
+        if (ui != null) {
+            ui.stop();
+        }
+        if (jadeContainer != null) {
+            try {
+                jadeContainer.kill();
+            } catch (Exception ignored) {
+            }
+        }
     }
 }
