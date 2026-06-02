@@ -26,6 +26,14 @@ Dependencias e classe principal estao no `pom.xml`:
 
 Na raiz do projeto, com **JDK 21+** instalado:
 
+Caso não esteja é possível ser intalado via Powershell com o seguinte comando:
+
+```jdk
+winget install --id EclipseAdoptium.Temurin.21.JDK -e --accept-package-agreements --accept-source-agreements
+```
+
+Após isso execute:
+
 ```bat
 run-gui.bat
 ```
