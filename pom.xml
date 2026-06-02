@@ -10,14 +10,19 @@
         <maven.compiler.release>21</maven.compiler.release>
         <exec.mainClass>br.univali.cc.ia2.m2.sma.Main</exec.mainClass>
         <javafx.version>21</javafx.version>
-        <jade.version>4.6.0</jade.version>
     </properties>
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
     <dependencies>
-        <!-- JADE: from local Maven repository -->
+        <!-- JADE -->
         <dependency>
-            <groupId>jade</groupId>
+            <groupId>com.gitlab.jade-project</groupId>
             <artifactId>jade</artifactId>
-            <version>${jade.version}</version>
+            <version>master-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
